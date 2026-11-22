@@ -24,7 +24,7 @@ jobs:
       - name: Show error summary
         if: failure()
         run: |
-          { echo '```'; grep -n -A15 "What went wrong" build.log | head -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo '```'; grep -n -B2 -A12 -E "What went wrong|^e: " build.log | head -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: RideLink-debug-apk

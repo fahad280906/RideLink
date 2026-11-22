@@ -8,11 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Guerrilla 450 dash. NOT IMPLEMENTED YET.
  * Royal Enfield has no public SDK, so the Bluetooth/Wi-Fi link must be worked out
- * and proven on your own bike before anything else is built on top of it.
+ * and proven on the real bike before anything else is built on top of it.
  */
 class DashModule : DeviceModule {
     override val id = "dash"
-    override val name = "Guerrilla 450 dash"
+    override val name = "Bike dash"
+    override val note = "Not available yet: the connection to the dash still has to be built and tested on the bike."
     private val _status = MutableStateFlow(ModuleStatus.Disconnected)
     override val status: StateFlow<ModuleStatus> = _status
 

@@ -4,22 +4,37 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.ridelink.core.ModuleRegistry
-import com.example.ridelink.core.RideState
+import com.example.ridelink.core.RideRecorder
 import com.example.ridelink.core.RideStateStore
+import com.example.ridelink.location.locationUpdates
+
+private enum class AppTab(val label: String, val icon: String) {
+    Navigate("Map", "🗺️"),
+    Rides("Rides", "🏁"),
+    Wallpapers("Wallpapers", "🖼️"),
+    Bike("Bike", "🏍️"),
+}
 
 @Composable
 fun RideApp() {
@@ -31,33 +46,56 @@ fun RideApp() {
     val launcher = rememberLauncherForActivityResult(RequestPermission()) { granted = it }
     LaunchedEffect(Unit) { if (!granted) launcher.launch(perm) }
 
-    if (!granted) {
+    if (granted) {
+        RideContent()
+    } else {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Location permission is needed to show the map.")
         }
-        return
-    }
-
-    val ride by RideStateStore.state.collectAsStateWithLifecycle()
-    Box(Modifier.fillMaxSize()) {
-        MapScreen(Modifier.fillMaxSize())
-        StatusPanel(ride, Modifier.align(Alignment.BottomCenter).padding(12.dp))
     }
 }
 
 @Composable
-private fun StatusPanel(ride: RideState, modifier: Modifier = Modifier) {
-    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("%.0f".format(ride.speedKmh), fontSize = 56.sp, style = MaterialTheme.typography.displayMedium)
-                Text(" km/h", Modifier.padding(bottom = 10.dp))
+private fun RideContent() {
+    val ctx = LocalContext.current
+
+    // One location source for the whole app: feeds the shared state and the ride recorder.
+    LaunchedEffect(Unit) {
+        locationUpdates(ctx).collect { loc ->
+            RideStateStore.setLocation(loc)
+            RideRecorder.onLocation(loc)
+        }
+    }
+
+    // Keep the screen on while a ride is being recorded.
+    val rec by RideRecorder.rec.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    DisposableEffect(rec.active) {
+        view.keepScreenOn = rec.active
+        onDispose { view.keepScreenOn = false }
+    }
+
+    var tab by remember { mutableIntStateOf(0) }
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                AppTab.entries.forEachIndexed { i, t ->
+                    NavigationBarItem(
+                        selected = tab == i,
+                        onClick = { tab = i },
+                        icon = { Text(t.icon) },
+                        label = { Text(t.label) },
+                    )
+                }
             }
-            ride.sensors.values.forEach { Text("${it.label}: ${it.value}") }
-            Spacer(Modifier.height(8.dp))
-            ModuleRegistry.modules.forEach { m ->
-                val s by m.status.collectAsStateWithLifecycle()
-                Text("${m.name}: $s", style = MaterialTheme.typography.bodySmall)
+        }
+    ) { pad ->
+        Box(Modifier.padding(pad).fillMaxSize()) {
+            when (tab) {
+                0 -> MapTab()
+                1 -> RidesTab()
+                2 -> WallpapersTab()
+                else -> BikeTab()
             }
         }
     }

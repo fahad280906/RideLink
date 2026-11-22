@@ -1,5 +1,7 @@
 package com.example.ridelink.core
 
+import com.example.ridelink.modules.DashModule
+import com.example.ridelink.modules.TpmsModule
 import kotlinx.coroutines.flow.StateFlow
 
 enum class ModuleStatus { Disconnected, Connecting, Connected, Error }
@@ -12,14 +14,14 @@ enum class ModuleStatus { Disconnected, Connecting, Connected, Error }
 interface DeviceModule {
     val id: String
     val name: String
+    val note: String
     val status: StateFlow<ModuleStatus>
     suspend fun connect()
     suspend fun disconnect()
 }
 
 object ModuleRegistry {
-    val modules: List<DeviceModule> = listOf(
-        com.example.ridelink.modules.DashModule(),
-        com.example.ridelink.modules.TpmsModule(),
-    )
+    val dash = DashModule()
+    val tpms = TpmsModule()
+    val modules: List<DeviceModule> = listOf(dash, tpms)
 }
